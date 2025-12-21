@@ -1,13 +1,50 @@
 /**
  * GET /api/logs/events
- * 로그 이벤트 조회
+ * 로그 이벤트 조회 (인증 필요)
  */
 
 import { NextResponse } from "next/server";
+import { getIronSession } from "iron-session";
+import { cookies } from "next/headers";
+import { sessionOptions } from "@/lib/auth/session";
+import { getAwsCredentials } from "@/lib/db/users";
 import { fetchLogEvents } from "@/lib/aws/logs";
+import type { SessionData } from "@/types";
 
 export async function GET(request: Request) {
   try {
+    // 세션 확인
+    const session = await getIronSession<SessionData>(
+      await cookies(),
+      sessionOptions
+    );
+
+    if (!session.isLoggedIn) {
+      return NextResponse.json(
+        {
+          error: {
+            code: "UNAUTHORIZED",
+            message: "Login required",
+          },
+        },
+        { status: 401 }
+      );
+    }
+
+    // 사용자 credentials 조회
+    const credentials = getAwsCredentials(session.userId);
+    if (!credentials) {
+      return NextResponse.json(
+        {
+          error: {
+            code: "NO_CREDENTIALS",
+            message: "AWS credentials not configured. Go to Settings.",
+          },
+        },
+        { status: 400 }
+      );
+    }
+
     const { searchParams } = new URL(request.url);
 
     // 필수 파라미터 검증
@@ -38,7 +75,7 @@ export async function GET(request: Request) {
     const limit = Number(searchParams.get("limit")) || 100;
     const nextToken = searchParams.get("nextToken") || undefined;
 
-    const result = await fetchLogEvents({
+    const result = await fetchLogEvents(credentials, {
       logGroupName,
       startTime,
       endTime,
@@ -55,12 +92,13 @@ export async function GET(request: Request) {
       error instanceof Error ? error.message : "Unknown error occurred";
 
     // 에러 유형별 처리
-    if (message.includes("credentials")) {
+    if (message.includes("InvalidSignatureException") ||
+        message.includes("UnrecognizedClientException")) {
       return NextResponse.json(
         {
           error: {
-            code: "CREDENTIALS_ERROR",
-            message: "AWS credentials not configured",
+            code: "INVALID_CREDENTIALS",
+            message: "AWS credentials are invalid. Please update in Settings.",
           },
         },
         { status: 401 }
@@ -89,6 +127,18 @@ export async function GET(request: Request) {
           },
         },
         { status: 429 }
+      );
+    }
+
+    if (message.includes("AccessDenied")) {
+      return NextResponse.json(
+        {
+          error: {
+            code: "ACCESS_DENIED",
+            message: "Access denied. Check IAM permissions.",
+          },
+        },
+        { status: 403 }
       );
     }
 

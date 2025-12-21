@@ -18,6 +18,7 @@ import {
   LOG_EVENTS_TTL,
 } from "../cache";
 import { trackApiCall, trackDataTransfer } from "../cost-tracker";
+import type { AwsCredentials } from "@/types";
 
 // 타입 정의
 export interface LogGroup {
@@ -49,17 +50,29 @@ export interface FetchLogEventsResult {
 }
 
 /**
+ * 사용자별 캐시 키 생성
+ * accessKeyId 앞 8자로 구분
+ */
+function getUserCachePrefix(credentials: AwsCredentials): string {
+  return credentials.accessKeyId.slice(0, 8);
+}
+
+/**
  * 로그 그룹 목록 조회
  */
-export async function fetchLogGroups(prefix?: string): Promise<LogGroup[]> {
-  // 캐시 확인
-  const cacheKey = `log-groups:${prefix || "all"}`;
+export async function fetchLogGroups(
+  credentials: AwsCredentials,
+  prefix?: string
+): Promise<LogGroup[]> {
+  // 캐시 확인 (사용자별)
+  const userPrefix = getUserCachePrefix(credentials);
+  const cacheKey = `${userPrefix}:log-groups:${prefix || "all"}`;
   const cached = getCached<LogGroup[]>(cacheKey);
   if (cached) {
     return cached;
   }
 
-  const client = getCloudWatchLogsClient();
+  const client = getCloudWatchLogsClient(credentials);
   const allGroups: LogGroup[] = [];
   let nextToken: string | undefined;
 
@@ -95,12 +108,21 @@ export async function fetchLogGroups(prefix?: string): Promise<LogGroup[]> {
  * 로그 이벤트 조회
  */
 export async function fetchLogEvents(
+  credentials: AwsCredentials,
   params: FetchLogEventsParams
 ): Promise<FetchLogEventsResult> {
-  const { logGroupName, startTime, endTime, filterPattern, limit = 100, nextToken } = params;
+  const {
+    logGroupName,
+    startTime,
+    endTime,
+    filterPattern,
+    limit = 100,
+    nextToken,
+  } = params;
 
-  // 캐시 확인 (nextToken이 있으면 캐시 안 함)
-  const cacheKey = `log-events:${logGroupName}:${startTime}:${endTime}:${filterPattern || ""}`;
+  // 캐시 확인 (nextToken이 있으면 캐시 안 함, 사용자별)
+  const userPrefix = getUserCachePrefix(credentials);
+  const cacheKey = `${userPrefix}:log-events:${logGroupName}:${startTime}:${endTime}:${filterPattern || ""}`;
   if (!nextToken) {
     const cached = getCached<FetchLogEventsResult>(cacheKey);
     if (cached) {
@@ -108,7 +130,7 @@ export async function fetchLogEvents(
     }
   }
 
-  const client = getCloudWatchLogsClient();
+  const client = getCloudWatchLogsClient(credentials);
 
   const command = new FilterLogEventsCommand({
     logGroupName,
