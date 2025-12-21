@@ -121,6 +121,35 @@ export function CredentialsForm() {
 
   return (
     <div className="space-y-6">
+      {/* 도움말 */}
+      <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+        <h3 className="text-sm font-medium text-blue-800 mb-2">
+          AWS Credentials 발급 방법
+        </h3>
+        <ol className="text-sm text-blue-700 space-y-1 list-decimal list-inside">
+          <li>AWS Console → IAM → Users → 본인 계정 선택</li>
+          <li>Security credentials 탭 → Access keys → Create access key</li>
+          <li>Use case: Application running outside AWS 선택</li>
+          <li>생성된 Access Key ID와 Secret Access Key를 아래에 입력</li>
+        </ol>
+        <p className="text-sm text-blue-700 mt-2">
+          <strong>권장 권한:</strong> CloudWatchLogsReadOnlyAccess (읽기 전용)
+        </p>
+      </div>
+
+      {/* 보안 안내 */}
+      <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg">
+        <h3 className="text-sm font-medium text-gray-800 mb-2">
+          보안 안내
+        </h3>
+        <ul className="text-sm text-gray-600 space-y-1 list-disc list-inside">
+          <li>Credentials는 AES-256-GCM으로 암호화되어 서버에 저장됩니다</li>
+          <li>세션은 HttpOnly 쿠키로 관리되어 XSS 공격으로부터 보호됩니다</li>
+          <li>Secret Access Key는 저장 후 다시 조회할 수 없습니다 (마스킹 처리)</li>
+          <li>더 이상 사용하지 않으면 Delete 버튼으로 삭제해주세요</li>
+        </ul>
+      </div>
+
       {/* 현재 상태 */}
       {existingCreds?.hasCredentials && (
         <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
