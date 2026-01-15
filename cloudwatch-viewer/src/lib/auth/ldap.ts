@@ -3,7 +3,7 @@
  * DEV_SKIP_LDAP=true 설정 시 개발용 mock 인증
  */
 
-import { Client } from "ldapts";
+import { Client, Filter } from "ldapts";
 
 interface LdapUser {
   username: string;
@@ -19,8 +19,9 @@ export async function authenticateWithLdap(
   username: string,
   password: string
 ): Promise<LdapUser | null> {
-  // 개발 모드: LDAP 스킵
-  if (process.env.DEV_SKIP_LDAP === "true") {
+  // 개발 모드: LDAP 스킵 (프로덕션에서는 무시)
+  const isDevMode = process.env.NODE_ENV !== "production";
+  if (process.env.DEV_SKIP_LDAP === "true" && isDevMode) {
     // 빈 비밀번호는 거부
     if (!password) {
       return null;
@@ -67,8 +68,9 @@ export async function authenticateWithLdap(
     // 1. 서비스 계정으로 바인드
     await client.bind(bindDn, bindPassword);
 
-    // 2. 사용자 검색
-    const filter = userFilter.replace("{{username}}", username);
+    // 2. 사용자 검색 (LDAP injection 방지를 위한 escape)
+    const escapedUsername = new Filter().escape(username);
+    const filter = userFilter.replace("{{username}}", escapedUsername);
     const { searchEntries } = await client.search(baseDn, {
       scope: "sub",
       filter,

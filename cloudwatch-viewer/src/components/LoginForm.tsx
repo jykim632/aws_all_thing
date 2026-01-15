@@ -32,8 +32,8 @@ export function LoginForm() {
         throw new Error(data.error?.message || "Login failed");
       }
 
-      router.push("/");
-      router.refresh();
+      // hard navigation으로 세션 상태 확실히 반영
+      window.location.href = "/";
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed");
     } finally {

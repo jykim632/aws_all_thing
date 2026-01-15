@@ -40,8 +40,15 @@ export type AwsCredentials = z.infer<typeof AwsCredentialsSchema>;
 
 // ===== API 요청/응답 =====
 
+// LDAP injection 방지용 화이트리스트
+const SAFE_USERNAME_REGEX = /^[a-zA-Z0-9._-]+$/;
+
 export const LoginRequestSchema = z.object({
-  username: z.string().min(1, "Username is required"),
+  username: z
+    .string()
+    .min(1, "Username is required")
+    .max(64, "Username too long")
+    .regex(SAFE_USERNAME_REGEX, "Username contains invalid characters"),
   password: z.string().min(1, "Password is required"),
 });
 
