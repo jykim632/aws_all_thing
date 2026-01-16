@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-Claude Code 협업 가이드라인 (회사 내부용)
+Claude Code 협업 가이드라인
 
 ## 기본 원칙
 
