@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import Link from "next/link";
 import { LogGroupList } from "@/components/LogGroupList";
 import { LogViewer } from "@/components/LogViewer";
 import { TimeRangeSelector } from "@/components/TimeRangeSelector";
 import { CostDisplay } from "@/components/CostDisplay";
 import { Navbar } from "@/components/Navbar";
+import { MfaModal } from "@/components/MfaModal";
 import { useAuth } from "@aws-internal/ui";
 
 export default function Home() {
@@ -14,6 +15,18 @@ export default function Home() {
   const [selectedGroup, setSelectedGroup] = useState<string>("");
   const [timeRange, setTimeRange] = useState(60 * 60 * 1000); // 1시간
   const [filterPattern, setFilterPattern] = useState("");
+  const [showMfaModal, setShowMfaModal] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  const handleMfaRequired = useCallback(() => {
+    setShowMfaModal(true);
+  }, []);
+
+  const handleMfaSuccess = useCallback(() => {
+    setShowMfaModal(false);
+    // 컴포넌트 재렌더링 트리거
+    setRefreshKey((prev) => prev + 1);
+  }, []);
 
   // AWS credentials 미설정 시
   if (!user?.hasAwsCredentials) {
@@ -50,8 +63,10 @@ export default function Home() {
         <aside className="w-72 border-r flex flex-col bg-gray-50">
           <div className="flex-1 overflow-hidden">
             <LogGroupList
+              key={`groups-${refreshKey}`}
               onSelect={setSelectedGroup}
               selectedGroup={selectedGroup}
+              onMfaRequired={handleMfaRequired}
             />
           </div>
         </aside>
@@ -88,9 +103,11 @@ export default function Home() {
           <div className="flex-1 overflow-hidden">
             {selectedGroup ? (
               <LogViewer
+                key={`viewer-${refreshKey}`}
                 logGroupName={selectedGroup}
                 timeRange={timeRange}
                 filterPattern={filterPattern}
+                onMfaRequired={handleMfaRequired}
               />
             ) : (
               <div className="flex items-center justify-center h-full text-gray-500">
@@ -100,6 +117,13 @@ export default function Home() {
           </div>
         </div>
       </div>
+
+      {/* MFA 모달 */}
+      <MfaModal
+        isOpen={showMfaModal}
+        onClose={() => setShowMfaModal(false)}
+        onSuccess={handleMfaSuccess}
+      />
     </div>
   );
 }

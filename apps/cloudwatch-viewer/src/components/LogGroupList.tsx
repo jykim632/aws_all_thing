@@ -11,9 +11,10 @@ interface LogGroup {
 interface LogGroupListProps {
   onSelect: (logGroupName: string) => void;
   selectedGroup?: string;
+  onMfaRequired?: () => void;
 }
 
-export function LogGroupList({ onSelect, selectedGroup }: LogGroupListProps) {
+export function LogGroupList({ onSelect, selectedGroup, onMfaRequired }: LogGroupListProps) {
   const [logGroups, setLogGroups] = useState<LogGroup[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -31,6 +32,15 @@ export function LogGroupList({ onSelect, selectedGroup }: LogGroupListProps) {
       const data = await res.json();
 
       if (data.error) {
+        // MFA 에러 체크
+        if (
+          data.error.code === "MFA_REQUIRED" ||
+          data.error.code === "MFA_SESSION_EXPIRED"
+        ) {
+          onMfaRequired?.();
+          setError("MFA 인증이 필요합니다.");
+          return;
+        }
         throw new Error(data.error.message);
       }
 

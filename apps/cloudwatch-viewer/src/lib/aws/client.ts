@@ -16,7 +16,10 @@ const clientCache = new Map<string, CloudWatchLogsClient>();
 export function getCloudWatchLogsClient(
   credentials: AwsCredentials
 ): CloudWatchLogsClient {
-  const cacheKey = `${credentials.accessKeyId}:${credentials.region}`;
+  // 캐시 키에 sessionToken 일부 포함 (토큰 변경 시 새 클라이언트 생성)
+  const cacheKey = credentials.sessionToken
+    ? `${credentials.accessKeyId}:${credentials.region}:${credentials.sessionToken.slice(-8)}`
+    : `${credentials.accessKeyId}:${credentials.region}`;
 
   const cached = clientCache.get(cacheKey);
   if (cached) {
@@ -28,6 +31,7 @@ export function getCloudWatchLogsClient(
     credentials: {
       accessKeyId: credentials.accessKeyId,
       secretAccessKey: credentials.secretAccessKey,
+      sessionToken: credentials.sessionToken,
     },
   });
 
