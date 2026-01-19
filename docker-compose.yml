@@ -16,7 +16,7 @@ services:
       - LDAP_BIND_DN=${LDAP_BIND_DN}
       - LDAP_BIND_PASSWORD=${LDAP_BIND_PASSWORD}
       - LDAP_BASE_DN=${LDAP_BASE_DN}
-      - LDAP_USER_FILTER=${LDAP_USER_FILTER:-(uid={{username}})}
+      - LDAP_USER_FILTER=${LDAP_USER_FILTER}
       - LDAP_TLS_ENABLED=${LDAP_TLS_ENABLED:-false}
     volumes:
       - cloudwatch-data:/app/data
