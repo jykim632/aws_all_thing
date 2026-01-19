@@ -18,6 +18,7 @@ services:
       - LDAP_BASE_DN=${LDAP_BASE_DN}
       - LDAP_USER_FILTER=${LDAP_USER_FILTER}
       - LDAP_TLS_ENABLED=${LDAP_TLS_ENABLED:-false}
+      - COOKIE_SECURE=${COOKIE_SECURE:-false}
     volumes:
       - cloudwatch-data:/app/data
     healthcheck:

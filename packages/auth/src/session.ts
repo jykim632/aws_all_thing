@@ -18,7 +18,7 @@ export function createSessionOptions(config: SessionConfig): SessionOptions {
     password: secret,
     cookieName: config.cookieName,
     cookieOptions: {
-      secure: process.env.NODE_ENV === "production",
+      secure: process.env.COOKIE_SECURE === "true",
       httpOnly: true,
       sameSite: "lax" as const,
       maxAge: config.maxAge ?? 8 * 60 * 60, // 기본 8시간
