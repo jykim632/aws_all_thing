@@ -1,5 +1,5 @@
 /**
- * LDAP 인증 클라이언트
+ * LDAP 인증 클라이언트 (Direct Bind 방식)
  * DEV_SKIP_LDAP=true 설정 시 개발용 mock 인증
  */
 
@@ -7,17 +7,9 @@ import { Client } from "ldapts";
 import type { LdapUser } from "./types";
 
 /**
- * LDAP filter value escape (RFC 4515)
- * 특수문자를 hex escape 처리
- */
-function escapeLdapFilter(value: string): string {
-  return value.replace(/[*()\\\/\0]/g, (char) => {
-    return "\\" + char.charCodeAt(0).toString(16).padStart(2, "0");
-  });
-}
-
-/**
- * LDAP 인증 수행
+ * LDAP 인증 수행 (Direct Bind)
+ * 서비스 계정 없이 사용자 DN 패턴으로 직접 바인드
+ *
  * @returns 성공 시 사용자 정보, 실패 시 null
  */
 export async function authenticateWithLdap(
@@ -51,15 +43,15 @@ export async function authenticateWithLdap(
 
   // LDAP 설정 확인
   const ldapUrl = process.env.LDAP_URL;
-  const bindDn = process.env.LDAP_BIND_DN;
-  const bindPassword = process.env.LDAP_BIND_PASSWORD;
-  const baseDn = process.env.LDAP_BASE_DN;
-  const userFilter = process.env.LDAP_USER_FILTER;
+  const userDnPattern = process.env.LDAP_USER_DN_PATTERN;
 
-  if (!ldapUrl || !bindDn || !bindPassword || !baseDn || !userFilter) {
-    console.error("LDAP configuration is incomplete");
+  if (!ldapUrl || !userDnPattern) {
+    console.error("LDAP configuration is incomplete. Required: LDAP_URL, LDAP_USER_DN_PATTERN");
     return null;
   }
+
+  // 사용자 DN 생성 (패턴에서 {{username}} 치환)
+  const userDn = userDnPattern.replace("{{username}}", username);
 
   const client = new Client({
     url: ldapUrl,
@@ -70,39 +62,13 @@ export async function authenticateWithLdap(
   });
 
   try {
-    // 1. 서비스 계정으로 바인드
-    await client.bind(bindDn, bindPassword);
-
-    // 2. 사용자 검색 (LDAP injection 방지를 위한 escape)
-    const escapedUsername = escapeLdapFilter(username);
-    const filter = userFilter.replace("{{username}}", escapedUsername);
-    const { searchEntries } = await client.search(baseDn, {
-      scope: "sub",
-      filter,
-      attributes: ["uid", "cn", "displayName", "mail"],
-    });
-
-    if (searchEntries.length === 0) {
-      return null;
-    }
-
-    const userEntry = searchEntries[0];
-    const userDn = userEntry.dn;
-
-    // 3. 서비스 계정 언바인드
+    // Direct bind: 사용자 DN + 비밀번호로 직접 바인드
+    await client.bind(userDn, password);
     await client.unbind();
-
-    // 4. 사용자 credentials로 바인드 (비밀번호 검증)
-    const userClient = new Client({ url: ldapUrl });
-    await userClient.bind(userDn, password);
-    await userClient.unbind();
 
     return {
       username,
-      displayName: String(
-        userEntry.displayName || userEntry.cn || username
-      ),
-      email: userEntry.mail ? String(userEntry.mail) : undefined,
+      displayName: username, // Direct bind에서는 추가 정보 조회 없음
     };
   } catch (error) {
     console.error("LDAP authentication failed:", error);

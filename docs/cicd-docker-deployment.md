@@ -142,10 +142,7 @@ services:
       - SESSION_SECRET=${SESSION_SECRET}
       - ENCRYPTION_SALT=${ENCRYPTION_SALT:-}
       - LDAP_URL=${LDAP_URL}
-      - LDAP_BIND_DN=${LDAP_BIND_DN}
-      - LDAP_BIND_PASSWORD=${LDAP_BIND_PASSWORD}
-      - LDAP_BASE_DN=${LDAP_BASE_DN}
-      - LDAP_USER_FILTER=${LDAP_USER_FILTER}
+      - LDAP_USER_DN_PATTERN=${LDAP_USER_DN_PATTERN}
       - LDAP_TLS_ENABLED=${LDAP_TLS_ENABLED:-false}
     volumes:
       - cloudwatch-data:/app/data
@@ -353,12 +350,9 @@ SESSION_SECRET=your-secret-key-at-least-32-chars
 # 미설정 시 기본값 사용 (기존 DB 호환)
 ENCRYPTION_SALT=your-random-salt-string
 
-# LDAP 인증
+# LDAP 인증 (Direct Bind 방식)
 LDAP_URL=ldap://ldap.company.com:389
-LDAP_BIND_DN=cn=service,dc=company,dc=com
-LDAP_BIND_PASSWORD=ldap-password
-LDAP_BASE_DN=ou=users,dc=company,dc=com
-LDAP_USER_FILTER=(uid={{username}})
+LDAP_USER_DN_PATTERN=uid={{username}},ou=users,dc=company,dc=com
 LDAP_TLS_ENABLED=false
 ```
 
