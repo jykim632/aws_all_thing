@@ -1,0 +1,19 @@
+# Dependencies
+node_modules
+.pnpm-store
+
+# Build
+.next
+out
+dist
+
+# Development
+*.log
+.env*.local
+
+# IDE
+.idea
+.vscode
+
+# Data (runtime only)
+data/
