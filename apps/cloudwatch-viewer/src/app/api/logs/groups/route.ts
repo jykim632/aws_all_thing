@@ -6,7 +6,7 @@
 import { NextResponse } from "next/server";
 import { getIronSession } from "iron-session";
 import { cookies } from "next/headers";
-import { sessionOptions } from "@/lib/init";
+import { getSessionOptions } from "@/lib/init";
 import { getAwsCredentials } from "@aws-internal/db/users";
 import { fetchLogGroups } from "@/lib/aws/logs";
 import type { SessionData } from "@aws-internal/auth";
@@ -16,7 +16,7 @@ export async function GET(request: Request) {
     // 세션 확인
     const session = await getIronSession<SessionData>(
       await cookies(),
-      sessionOptions
+      getSessionOptions()
     );
 
     if (!session.isLoggedIn) {

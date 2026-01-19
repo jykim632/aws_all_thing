@@ -6,7 +6,7 @@
 import { NextResponse } from "next/server";
 import { getIronSession } from "iron-session";
 import { cookies } from "next/headers";
-import { sessionOptions } from "@/lib/init";
+import { getSessionOptions } from "@/lib/init";
 import { hasAwsCredentials } from "@aws-internal/db/users";
 import type { SessionData, UserInfo } from "@aws-internal/auth";
 
@@ -14,7 +14,7 @@ export async function GET() {
   try {
     const session = await getIronSession<SessionData>(
       await cookies(),
-      sessionOptions
+      getSessionOptions()
     );
 
     if (!session.isLoggedIn) {

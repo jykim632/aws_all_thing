@@ -6,7 +6,7 @@
 import { NextResponse } from "next/server";
 import { getIronSession } from "iron-session";
 import { cookies } from "next/headers";
-import { sessionOptions } from "@/lib/init";
+import { getSessionOptions } from "@/lib/init";
 import {
   authenticateWithLdap,
   LoginRequestSchema,
@@ -62,7 +62,7 @@ export async function POST(request: Request) {
     // 세션 생성
     const session = await getIronSession<SessionData>(
       await cookies(),
-      sessionOptions
+      getSessionOptions()
     );
 
     session.isLoggedIn = true;

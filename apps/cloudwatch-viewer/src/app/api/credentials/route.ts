@@ -8,7 +8,7 @@
 import { NextResponse } from "next/server";
 import { getIronSession } from "iron-session";
 import { cookies } from "next/headers";
-import { sessionOptions } from "@/lib/init";
+import { getSessionOptions } from "@/lib/init";
 import {
   getAwsCredentials,
   saveAwsCredentials,
@@ -25,7 +25,7 @@ export async function GET() {
   try {
     const session = await getIronSession<SessionData>(
       await cookies(),
-      sessionOptions
+      getSessionOptions()
     );
 
     if (!session.isLoggedIn) {
@@ -64,7 +64,7 @@ export async function POST(request: Request) {
   try {
     const session = await getIronSession<SessionData>(
       await cookies(),
-      sessionOptions
+      getSessionOptions()
     );
 
     if (!session.isLoggedIn) {
@@ -116,7 +116,7 @@ export async function DELETE() {
   try {
     const session = await getIronSession<SessionData>(
       await cookies(),
-      sessionOptions
+      getSessionOptions()
     );
 
     if (!session.isLoggedIn) {

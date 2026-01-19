@@ -6,14 +6,14 @@
 import { NextResponse } from "next/server";
 import { getIronSession } from "iron-session";
 import { cookies } from "next/headers";
-import { sessionOptions } from "@/lib/init";
+import { getSessionOptions } from "@/lib/init";
 import type { SessionData } from "@aws-internal/auth";
 
 export async function POST() {
   try {
     const session = await getIronSession<SessionData>(
       await cookies(),
-      sessionOptions
+      getSessionOptions()
     );
 
     session.destroy();

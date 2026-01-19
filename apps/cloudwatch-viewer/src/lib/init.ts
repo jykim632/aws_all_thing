@@ -5,6 +5,7 @@
  */
 
 import path from "path";
+import type { SessionOptions } from "iron-session";
 import { initDb } from "@aws-internal/db";
 import { createSessionOptions } from "@aws-internal/auth";
 
@@ -14,7 +15,14 @@ initDb({
   encryptionSalt: process.env.ENCRYPTION_SALT || "cloudwatch-viewer-salt", // 기존 데이터 호환성 유지
 });
 
-// 세션 옵션
-export const sessionOptions = createSessionOptions({
-  cookieName: "cloudwatch-session",
-});
+// 세션 옵션 (lazy 초기화 - 빌드 타임에 환경변수 불필요)
+let _sessionOptions: SessionOptions | null = null;
+
+export function getSessionOptions(): SessionOptions {
+  if (!_sessionOptions) {
+    _sessionOptions = createSessionOptions({
+      cookieName: "cloudwatch-session",
+    });
+  }
+  return _sessionOptions;
+}
