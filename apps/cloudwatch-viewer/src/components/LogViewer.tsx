@@ -12,9 +12,10 @@ interface LogViewerProps {
   logGroupName: string;
   timeRange: number;
   filterPattern: string;
+  onMfaRequired?: () => void;
 }
 
-export function LogViewer({ logGroupName, timeRange, filterPattern }: LogViewerProps) {
+export function LogViewer({ logGroupName, timeRange, filterPattern, onMfaRequired }: LogViewerProps) {
   const [events, setEvents] = useState<LogEvent[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -45,6 +46,15 @@ export function LogViewer({ logGroupName, timeRange, filterPattern }: LogViewerP
       const data = await res.json();
 
       if (data.error) {
+        // MFA 에러 체크
+        if (
+          data.error.code === "MFA_REQUIRED" ||
+          data.error.code === "MFA_SESSION_EXPIRED"
+        ) {
+          onMfaRequired?.();
+          setError("MFA 인증이 필요합니다.");
+          return;
+        }
         throw new Error(data.error.message);
       }
 
@@ -54,7 +64,7 @@ export function LogViewer({ logGroupName, timeRange, filterPattern }: LogViewerP
     } finally {
       setLoading(false);
     }
-  }, [logGroupName, timeRange, filterPattern]);
+  }, [logGroupName, timeRange, filterPattern, onMfaRequired]);
 
   useEffect(() => {
     fetchLogs();

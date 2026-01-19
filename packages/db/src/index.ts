@@ -62,4 +62,27 @@ export function closeDb(): void {
 }
 
 // Re-export
-export type { DbConfig } from "./types";
+export type { DbConfig, AwsCredentials, TempCredentials, MfaStatus } from "./types";
+export {
+  // 사용자
+  upsertUser,
+  getUserById,
+  getUserByUsername,
+  // AWS Credentials
+  saveAwsCredentials,
+  getAwsCredentials,
+  deleteAwsCredentials,
+  hasAwsCredentials,
+  getMaskedAccessKeyId,
+  // MFA
+  saveMfaSerial,
+  getMfaSerial,
+  getMaskedMfaSerial,
+  // 임시 자격증명
+  saveTempCredentials,
+  getValidTempCredentials,
+  clearTempCredentials,
+  getMfaStatus,
+  getEffectiveAwsCredentials,
+} from "./users";
+export { initSchema } from "./schema";

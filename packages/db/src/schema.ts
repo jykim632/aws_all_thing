@@ -38,4 +38,35 @@ export function initSchema(): void {
     CREATE INDEX IF NOT EXISTS idx_aws_credentials_user_id
     ON aws_credentials(user_id);
   `);
+
+  // MFA 관련 칼럼 마이그레이션 (기존 테이블에 추가)
+  runMfaMigration(db);
+}
+
+/**
+ * MFA 관련 칼럼 추가 마이그레이션
+ * - 모든 칼럼은 nullable → 기존 데이터 영향 없음
+ * - mfa_serial_encrypted가 NULL이면 MFA 미사용으로 간주
+ */
+function runMfaMigration(db: ReturnType<typeof getDb>): void {
+  const mfaColumns = [
+    "mfa_serial_encrypted",
+    "temp_access_key_id_encrypted",
+    "temp_secret_access_key_encrypted",
+    "temp_session_token_encrypted",
+    "temp_expires_at",
+  ];
+
+  // 현재 테이블 칼럼 조회
+  const tableInfo = db
+    .prepare("PRAGMA table_info(aws_credentials)")
+    .all() as { name: string }[];
+  const existingColumns = new Set(tableInfo.map((col) => col.name));
+
+  // 없는 칼럼만 추가
+  for (const column of mfaColumns) {
+    if (!existingColumns.has(column)) {
+      db.prepare(`ALTER TABLE aws_credentials ADD COLUMN ${column} TEXT`).run();
+    }
+  }
 }

@@ -14,7 +14,11 @@ import {
   saveAwsCredentials,
   deleteAwsCredentials,
   getMaskedAccessKeyId,
-} from "@aws-internal/db/users";
+  saveMfaSerial,
+  getMaskedMfaSerial,
+  getMfaStatus,
+  clearTempCredentials,
+} from "@aws-internal/db";
 import type { SessionData } from "@aws-internal/auth";
 import { CredentialsRequestSchema } from "@/types";
 
@@ -40,13 +44,25 @@ export async function GET() {
     if (!creds) {
       return NextResponse.json({
         hasCredentials: false,
+        accessKeyIdMasked: null,
+        region: "ap-northeast-2",
+        mfaEnabled: false,
+        mfaSerialMasked: null,
+        tempCredentialsStatus: "none" as const,
+        tempExpiresAt: null,
       });
     }
+
+    const mfaStatus = getMfaStatus(session.userId);
 
     return NextResponse.json({
       hasCredentials: true,
       accessKeyIdMasked: getMaskedAccessKeyId(session.userId),
       region: creds.region,
+      mfaEnabled: mfaStatus.mfaEnabled,
+      mfaSerialMasked: getMaskedMfaSerial(session.userId),
+      tempCredentialsStatus: mfaStatus.tempCredentialsStatus,
+      tempExpiresAt: mfaStatus.tempExpiresAt?.toISOString() ?? null,
     });
   } catch (error) {
     console.error("Get credentials error:", error);
@@ -90,7 +106,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const { accessKeyId, secretAccessKey, region } = parseResult.data;
+    const { accessKeyId, secretAccessKey, region, mfaSerial } = parseResult.data;
 
     saveAwsCredentials(
       session.userId,
@@ -98,6 +114,12 @@ export async function POST(request: Request) {
       secretAccessKey,
       region || "ap-northeast-2"
     );
+
+    // MFA Serial 저장 (없으면 null로 설정하여 MFA 비활성화)
+    saveMfaSerial(session.userId, mfaSerial ?? null);
+
+    // MFA 설정이 변경되면 기존 임시 자격증명 삭제
+    clearTempCredentials(session.userId);
 
     return NextResponse.json({ success: true });
   } catch (error) {

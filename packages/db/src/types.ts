@@ -30,6 +30,25 @@ export const AwsCredentialsSchema = z.object({
   accessKeyId: z.string().min(16).max(128),
   secretAccessKey: z.string().min(1),
   region: z.string().default("ap-northeast-2"),
+  sessionToken: z.string().optional(), // 임시 자격증명용
 });
 
 export type AwsCredentials = z.infer<typeof AwsCredentialsSchema>;
+
+// ===== MFA 관련 =====
+
+export const TempCredentialsSchema = z.object({
+  accessKeyId: z.string(),
+  secretAccessKey: z.string(),
+  sessionToken: z.string(),
+  expiresAt: z.date(),
+});
+
+export type TempCredentials = z.infer<typeof TempCredentialsSchema>;
+
+export interface MfaStatus {
+  mfaEnabled: boolean;
+  mfaSerial: string | null;
+  tempCredentialsStatus: "valid" | "expired" | "none";
+  tempExpiresAt: Date | null;
+}

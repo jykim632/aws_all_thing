@@ -7,8 +7,13 @@ import { NextResponse } from "next/server";
 import { getIronSession } from "iron-session";
 import { cookies } from "next/headers";
 import { getSessionOptions } from "@/lib/init";
-import { getAwsCredentials } from "@aws-internal/db/users";
+import {
+  getEffectiveAwsCredentials,
+  getMfaSerial,
+  hasAwsCredentials,
+} from "@aws-internal/db";
 import { fetchLogGroups } from "@/lib/aws/logs";
+import { mapAwsErrorToApiError } from "@/lib/aws/errors";
 import type { SessionData } from "@aws-internal/auth";
 
 export async function GET(request: Request) {
@@ -32,7 +37,34 @@ export async function GET(request: Request) {
     }
 
     // 사용자 credentials 조회
-    const credentials = getAwsCredentials(session.userId);
+    if (!hasAwsCredentials(session.userId)) {
+      return NextResponse.json(
+        {
+          error: {
+            code: "NO_CREDENTIALS",
+            message: "AWS credentials not configured. Go to Settings.",
+          },
+        },
+        { status: 400 }
+      );
+    }
+
+    // MFA 체크: MFA 설정됐는데 유효한 임시 자격증명이 없으면 MFA_REQUIRED
+    const mfaSerial = getMfaSerial(session.userId);
+    const credentials = getEffectiveAwsCredentials(session.userId);
+
+    if (mfaSerial && !credentials) {
+      return NextResponse.json(
+        {
+          error: {
+            code: "MFA_REQUIRED",
+            message: "MFA 인증이 필요합니다.",
+          },
+        },
+        { status: 401 }
+      );
+    }
+
     if (!credentials) {
       return NextResponse.json(
         {
@@ -45,6 +77,8 @@ export async function GET(request: Request) {
       );
     }
 
+    const usingTempCredentials = !!credentials.sessionToken;
+
     const { searchParams } = new URL(request.url);
     const prefix = searchParams.get("prefix") || undefined;
 
@@ -53,6 +87,19 @@ export async function GET(request: Request) {
     return NextResponse.json({ logGroups });
   } catch (error) {
     console.error("Failed to fetch log groups:", error);
+
+    // MFA 관련 에러 매핑 (임시 자격증명 사용 시에만)
+    const mapped = mapAwsErrorToApiError(error, {
+      source: "cloudwatch",
+      usingTempCredentials: true, // 이 시점에서는 항상 true로 간주 (catch 블록)
+    });
+
+    if (mapped) {
+      return NextResponse.json(
+        { error: { code: mapped.code, message: mapped.message } },
+        { status: mapped.httpStatus }
+      );
+    }
 
     const message =
       error instanceof Error ? error.message : "Unknown error occurred";

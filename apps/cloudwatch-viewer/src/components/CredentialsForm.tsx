@@ -7,17 +7,17 @@
 import { useState, useEffect, type FormEvent } from "react";
 import { useAuth } from "@aws-internal/ui";
 
-interface CredentialsInfo {
-  hasCredentials: boolean;
-  accessKeyIdMasked?: string;
-  region?: string;
-}
+import type { CredentialsResponse } from "@/types";
+
+type CredentialsInfo = CredentialsResponse;
 
 export function CredentialsForm() {
   const { refetch } = useAuth();
   const [accessKeyId, setAccessKeyId] = useState("");
   const [secretAccessKey, setSecretAccessKey] = useState("");
   const [region, setRegion] = useState("ap-northeast-2");
+  const [useMfa, setUseMfa] = useState(false);
+  const [mfaSerial, setMfaSerial] = useState("");
   const [existingCreds, setExistingCreds] = useState<CredentialsInfo | null>(
     null
   );
@@ -33,13 +33,24 @@ export function CredentialsForm() {
     async function fetchCredentials() {
       try {
         const res = await fetch("/api/credentials");
-        const data = await res.json();
+        const data: CredentialsInfo = await res.json();
         setExistingCreds(data);
         if (data.region) {
           setRegion(data.region);
         }
+        if (data.mfaEnabled) {
+          setUseMfa(true);
+        }
       } catch {
-        setExistingCreds({ hasCredentials: false });
+        setExistingCreds({
+          hasCredentials: false,
+          accessKeyIdMasked: null,
+          region: "ap-northeast-2",
+          mfaEnabled: false,
+          mfaSerialMasked: null,
+          tempCredentialsStatus: "none",
+          tempExpiresAt: null,
+        });
       } finally {
         setLoading(false);
       }
@@ -56,7 +67,12 @@ export function CredentialsForm() {
       const res = await fetch("/api/credentials", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ accessKeyId, secretAccessKey, region }),
+        body: JSON.stringify({
+          accessKeyId,
+          secretAccessKey,
+          region,
+          mfaSerial: useMfa ? mfaSerial : undefined,
+        }),
       });
 
       const data = await res.json();
@@ -68,6 +84,7 @@ export function CredentialsForm() {
       setMessage({ type: "success", text: "Credentials saved successfully" });
       setAccessKeyId("");
       setSecretAccessKey("");
+      setMfaSerial("");
 
       // 기존 credentials 다시 조회
       const credsRes = await fetch("/api/credentials");
@@ -102,7 +119,16 @@ export function CredentialsForm() {
       }
 
       setMessage({ type: "success", text: "Credentials deleted" });
-      setExistingCreds({ hasCredentials: false });
+      setExistingCreds({
+        hasCredentials: false,
+        accessKeyIdMasked: null,
+        region: "ap-northeast-2",
+        mfaEnabled: false,
+        mfaSerialMasked: null,
+        tempCredentialsStatus: "none",
+        tempExpiresAt: null,
+      });
+      setUseMfa(false);
       refetch();
     } catch (err) {
       setMessage({
@@ -164,6 +190,30 @@ export function CredentialsForm() {
               <p className="text-sm text-green-600 font-mono">
                 Region: {existingCreds.region}
               </p>
+              {existingCreds.mfaEnabled && (
+                <>
+                  <p className="text-sm text-green-600 font-mono">
+                    MFA: {existingCreds.mfaSerialMasked}
+                  </p>
+                  <p className="text-sm text-green-600">
+                    MFA Session:{" "}
+                    {existingCreds.tempCredentialsStatus === "valid" ? (
+                      <span className="text-green-700 font-medium">
+                        Valid until{" "}
+                        {existingCreds.tempExpiresAt
+                          ? new Date(existingCreds.tempExpiresAt).toLocaleString()
+                          : "N/A"}
+                      </span>
+                    ) : existingCreds.tempCredentialsStatus === "expired" ? (
+                      <span className="text-amber-600 font-medium">Expired</span>
+                    ) : (
+                      <span className="text-amber-600 font-medium">
+                        Not authenticated
+                      </span>
+                    )}
+                  </p>
+                </>
+              )}
             </div>
             <button
               onClick={handleDelete}
@@ -246,6 +296,44 @@ export function CredentialsForm() {
             <option value="us-west-2">US West (Oregon)</option>
             <option value="eu-west-1">Europe (Ireland)</option>
           </select>
+        </div>
+
+        {/* MFA 설정 */}
+        <div className="border-t border-gray-200 pt-4">
+          <label className="flex items-center space-x-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={useMfa}
+              onChange={(e) => setUseMfa(e.target.checked)}
+              className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+            />
+            <span className="text-sm font-medium text-gray-700">
+              MFA 사용 (선택)
+            </span>
+          </label>
+
+          {useMfa && (
+            <div className="mt-3">
+              <label
+                htmlFor="mfaSerial"
+                className="block text-sm font-medium text-gray-700 mb-1"
+              >
+                MFA Device ARN
+              </label>
+              <input
+                id="mfaSerial"
+                type="text"
+                value={mfaSerial}
+                onChange={(e) => setMfaSerial(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono text-sm"
+                placeholder="arn:aws:iam::123456789012:mfa/username"
+              />
+              <p className="mt-1 text-xs text-gray-500">
+                AWS Console → IAM → Users → Security credentials → MFA devices에서
+                ARN 복사
+              </p>
+            </div>
+          )}
         </div>
 
         <button
