@@ -140,6 +140,7 @@ services:
     environment:
       - NODE_ENV=production
       - SESSION_SECRET=${SESSION_SECRET}
+      - ENCRYPTION_SALT=${ENCRYPTION_SALT:-}
       - LDAP_URL=${LDAP_URL}
       - LDAP_BIND_DN=${LDAP_BIND_DN}
       - LDAP_BIND_PASSWORD=${LDAP_BIND_PASSWORD}
@@ -348,6 +349,10 @@ TAG=latest
 # Session (32자 이상 필수)
 SESSION_SECRET=your-secret-key-at-least-32-chars
 
+# 암호화 Salt (프로덕션 권장)
+# 미설정 시 기본값 사용 (기존 DB 호환)
+ENCRYPTION_SALT=your-random-salt-string
+
 # LDAP 인증
 LDAP_URL=ldap://ldap.company.com:389
 LDAP_BIND_DN=cn=service,dc=company,dc=com
@@ -416,5 +421,6 @@ curl http://localhost:3001/login
 ### 보안
 
 - `.env` 파일은 서버에서만 관리 (git에 커밋 X)
-- `SESSION_SECRET`은 최소 32자 랜덤 문자열
+- `SESSION_SECRET`은 최소 32자 랜덤 문자열 (시작 시 검증됨)
+- `ENCRYPTION_SALT`는 프로덕션에서 별도 설정 권장 (미설정 시 기본값)
 - GitLab Variables에 민감 정보 저장

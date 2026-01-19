@@ -11,7 +11,7 @@ import { createSessionOptions } from "@aws-internal/auth";
 // DB 초기화 (앱 시작 시 1회)
 initDb({
   dbPath: path.join(process.cwd(), "data", "cloudwatch-viewer.db"),
-  encryptionSalt: "cloudwatch-viewer-salt", // 기존 데이터 호환성 유지!
+  encryptionSalt: process.env.ENCRYPTION_SALT || "cloudwatch-viewer-salt", // 기존 데이터 호환성 유지
 });
 
 // 세션 옵션

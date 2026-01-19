@@ -1,0 +1,38 @@
+services:
+  cloudwatch-viewer:
+    build:
+      context: .
+      dockerfile: ./apps/cloudwatch-viewer/Dockerfile
+    image: aws-internal/cloudwatch-viewer:${TAG:-latest}
+    container_name: cloudwatch-viewer
+    restart: unless-stopped
+    ports:
+      - "3001:3000"
+    environment:
+      - NODE_ENV=production
+      - SESSION_SECRET=${SESSION_SECRET}
+      - ENCRYPTION_SALT=${ENCRYPTION_SALT:-}
+      - LDAP_URL=${LDAP_URL}
+      - LDAP_BIND_DN=${LDAP_BIND_DN}
+      - LDAP_BIND_PASSWORD=${LDAP_BIND_PASSWORD}
+      - LDAP_BASE_DN=${LDAP_BASE_DN}
+      - LDAP_USER_FILTER=${LDAP_USER_FILTER}
+      - LDAP_TLS_ENABLED=${LDAP_TLS_ENABLED:-false}
+    volumes:
+      - cloudwatch-data:/app/data
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3000/api/auth/me"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # 향후 추가
+  # billing-dashboard:
+  #   build:
+  #     context: .
+  #     dockerfile: ./apps/billing-dashboard/Dockerfile
+  #   ports:
+  #     - "3002:3000"
+
+volumes:
+  cloudwatch-data:

@@ -129,6 +129,9 @@ npm run lint     # ESLint
 # 세션 (필수) - 32자 이상 랜덤 문자열
 SESSION_SECRET=your-secret-key-at-least-32-chars
 
+# 암호화 salt (프로덕션 권장) - 미설정 시 기본값 사용 (기존 DB 호환)
+ENCRYPTION_SALT=your-random-salt-string
+
 # LDAP 인증 (프로덕션)
 LDAP_URL=ldap://ldap.example.com:389
 LDAP_BIND_DN=cn=service,dc=example,dc=com

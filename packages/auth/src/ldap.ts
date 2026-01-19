@@ -25,7 +25,7 @@ export async function authenticateWithLdap(
   password: string
 ): Promise<LdapUser | null> {
   // 개발 모드: LDAP 스킵 (프로덕션에서는 무시)
-  const isDevMode = process.env.NODE_ENV !== "production";
+  const isDevMode = process.env.NODE_ENV === "development";
   if (process.env.DEV_SKIP_LDAP === "true" && isDevMode) {
     // 빈 비밀번호는 거부
     if (!password) {

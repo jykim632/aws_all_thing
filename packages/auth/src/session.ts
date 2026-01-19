@@ -9,8 +9,13 @@ import type { SessionConfig, SessionData } from "./types";
  * 세션 옵션 생성 (앱별 설정 가능)
  */
 export function createSessionOptions(config: SessionConfig): SessionOptions {
+  const secret = process.env.SESSION_SECRET;
+  if (!secret || secret.length < 32) {
+    throw new Error("SESSION_SECRET must be at least 32 characters");
+  }
+
   return {
-    password: process.env.SESSION_SECRET!,
+    password: secret,
     cookieName: config.cookieName,
     cookieOptions: {
       secure: process.env.NODE_ENV === "production",
