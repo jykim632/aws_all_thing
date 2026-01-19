@@ -13,7 +13,10 @@ services:
       - SESSION_SECRET=${SESSION_SECRET}
       - ENCRYPTION_SALT=${ENCRYPTION_SALT:-}
       - LDAP_URL=${LDAP_URL}
-      - LDAP_USER_DN_PATTERN=${LDAP_USER_DN_PATTERN}
+      - LDAP_BIND_DN=${LDAP_BIND_DN}
+      - LDAP_BIND_PASSWORD=${LDAP_BIND_PASSWORD}
+      - LDAP_BASE_DN=${LDAP_BASE_DN}
+      - LDAP_USER_FILTER=${LDAP_USER_FILTER:-(uid={{username}})}
       - LDAP_TLS_ENABLED=${LDAP_TLS_ENABLED:-false}
     volumes:
       - cloudwatch-data:/app/data
