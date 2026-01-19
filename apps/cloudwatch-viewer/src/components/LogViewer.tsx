@@ -1,6 +1,15 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState, useCallback } from "react";
+
+import { extractApiError } from "@/lib/api/response";
+import {
+  isMfaError,
+  isSettingsRequiredError,
+  isUnauthorizedError,
+} from "@/lib/aws/errors";
+import type { UiError } from "@/types";
 
 interface LogEvent {
   timestamp: number;
@@ -18,7 +27,7 @@ interface LogViewerProps {
 export function LogViewer({ logGroupName, timeRange, filterPattern, onMfaRequired }: LogViewerProps) {
   const [events, setEvents] = useState<LogEvent[]>([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<UiError | null>(null);
   const [autoRefresh, setAutoRefresh] = useState(true);
 
   const fetchLogs = useCallback(async () => {
@@ -45,22 +54,17 @@ export function LogViewer({ logGroupName, timeRange, filterPattern, onMfaRequire
       const res = await fetch(`/api/logs/events?${params}`);
       const data = await res.json();
 
-      if (data.error) {
-        // MFA 에러 체크
-        if (
-          data.error.code === "MFA_REQUIRED" ||
-          data.error.code === "MFA_SESSION_EXPIRED"
-        ) {
-          onMfaRequired?.();
-          setError("MFA 인증이 필요합니다.");
-          return;
-        }
-        throw new Error(data.error.message);
+      const apiError = extractApiError(data);
+      if (apiError) {
+        setError(apiError);
+        return;
       }
 
       setEvents(data.events);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load logs");
+      setError({
+        message: err instanceof Error ? err.message : "Failed to load logs",
+      });
     } finally {
       setLoading(false);
     }
@@ -95,10 +99,69 @@ export function LogViewer({ logGroupName, timeRange, filterPattern, onMfaRequire
     );
   }
 
-  if (error) {
+  const renderError = () => {
+    if (!error) return null;
+
+    // 1) 설정으로 이동 (NO_CREDENTIALS / INVALID_CREDENTIALS)
+    if (isSettingsRequiredError(error.code)) {
+      return (
+        <div className="flex items-center justify-center h-full">
+          <div className="p-6 bg-amber-50 border border-amber-200 rounded-lg max-w-md">
+            <div className="text-amber-800 font-medium mb-2">
+              AWS Credentials 설정 필요
+            </div>
+            <p className="text-amber-700 text-sm mb-4">{error.message}</p>
+            <Link
+              href="/settings"
+              className="text-sm text-blue-600 hover:underline"
+            >
+              설정으로 이동 →
+            </Link>
+          </div>
+        </div>
+      );
+    }
+
+    // 2) MFA 안내 (MFA_REQUIRED / MFA_SESSION_EXPIRED)
+    if (isMfaError(error.code)) {
+      return (
+        <div className="flex items-center justify-center h-full">
+          <div className="p-6 bg-blue-50 border border-blue-200 rounded-lg max-w-md">
+            <div className="text-blue-800 font-medium mb-2">MFA 인증 필요</div>
+            <p className="text-blue-700 text-sm mb-4">{error.message}</p>
+            <button
+              onClick={() => onMfaRequired?.()}
+              className="text-sm text-blue-600 hover:underline"
+            >
+              MFA 인증하기 →
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    // 3) 로그인 안내 (UNAUTHORIZED)
+    if (isUnauthorizedError(error.code)) {
+      return (
+        <div className="flex items-center justify-center h-full">
+          <div className="p-6 bg-amber-50 border border-amber-200 rounded-lg max-w-md">
+            <div className="text-amber-800 font-medium mb-2">로그인 필요</div>
+            <p className="text-amber-700 text-sm mb-4">{error.message}</p>
+            <Link
+              href="/login"
+              className="text-sm text-blue-600 hover:underline"
+            >
+              로그인으로 이동 →
+            </Link>
+          </div>
+        </div>
+      );
+    }
+
+    // 4) 기타 에러
     return (
       <div className="flex flex-col items-center justify-center h-full gap-2">
-        <div className="text-red-500">{error}</div>
+        <div className="text-red-500">{error.message}</div>
         <button
           onClick={fetchLogs}
           className="text-sm text-blue-600 hover:underline"
@@ -107,6 +170,10 @@ export function LogViewer({ logGroupName, timeRange, filterPattern, onMfaRequire
         </button>
       </div>
     );
+  };
+
+  if (error) {
+    return renderError();
   }
 
   if (events.length === 0) {

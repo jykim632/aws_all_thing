@@ -17,6 +17,8 @@ import { mapAwsErrorToApiError } from "@/lib/aws/errors";
 import type { SessionData } from "@aws-internal/auth";
 
 export async function GET(request: Request) {
+  let userId: number | undefined;
+
   try {
     // 세션 확인
     const session = await getIronSession<SessionData>(
@@ -36,8 +38,10 @@ export async function GET(request: Request) {
       );
     }
 
+    userId = session.userId;
+
     // 사용자 credentials 조회
-    if (!hasAwsCredentials(session.userId)) {
+    if (!hasAwsCredentials(userId)) {
       return NextResponse.json(
         {
           error: {
@@ -50,8 +54,8 @@ export async function GET(request: Request) {
     }
 
     // MFA 체크: MFA 설정됐는데 유효한 임시 자격증명이 없으면 MFA_REQUIRED
-    const mfaSerial = getMfaSerial(session.userId);
-    const credentials = getEffectiveAwsCredentials(session.userId);
+    const mfaSerial = getMfaSerial(userId);
+    const credentials = getEffectiveAwsCredentials(userId);
 
     if (mfaSerial && !credentials) {
       return NextResponse.json(
@@ -172,6 +176,20 @@ export async function GET(request: Request) {
           },
         },
         { status: 429 }
+      );
+    }
+
+    // MFA 정책에 의한 deny → MFA 설정 여부에 따라 분기
+    if (message.includes("explicit deny") && message.includes("MFA")) {
+      const mfaSerial = userId ? getMfaSerial(userId) : null;
+      const code = mfaSerial ? "MFA_REQUIRED" : "MFA_NOT_CONFIGURED";
+      const msg = mfaSerial
+        ? "MFA 인증이 필요합니다."
+        : "이 리소스에 접근하려면 MFA 설정이 필요합니다.";
+
+      return NextResponse.json(
+        { error: { code, message: msg } },
+        { status: 401 }
       );
     }
 

@@ -44,6 +44,20 @@ export interface ApiErrorResponse {
   };
 }
 
+// API 에러 응답 Zod 스키마 (런타임 파싱용)
+export const ApiErrorResponseSchema = z.object({
+  error: z.object({
+    code: z.string(),
+    message: z.string(),
+  }),
+});
+
+// 클라이언트 에러 상태 타입
+export interface UiError {
+  code?: string;
+  message: string;
+}
+
 // MFA 관련 에러 코드
 export type MfaErrorCode =
   | "MFA_REQUIRED"
