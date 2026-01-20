@@ -20,7 +20,7 @@ import {
   clearTempCredentials,
 } from "@aws-internal/db";
 import type { SessionData } from "@aws-internal/auth";
-import { CredentialsRequestSchema } from "@/types";
+import { CredentialsRequestSchema, CredentialsPatchSchema } from "@/types";
 
 /**
  * GET: credentials 존재 여부 및 마스킹된 Access Key 조회
@@ -153,6 +153,89 @@ export async function DELETE() {
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Delete credentials error:", error);
+    return NextResponse.json(
+      { error: { code: "INTERNAL_ERROR", message: "An unexpected error occurred" } },
+      { status: 500 }
+    );
+  }
+}
+
+/**
+ * PATCH: 필드별 부분 업데이트
+ * - accessKeyId + secretAccessKey: 쌍으로만 변경 가능
+ * - region: 단독 변경 가능
+ * - mfaSerial: 단독 변경 가능 (null이면 MFA 삭제)
+ */
+export async function PATCH(request: Request) {
+  try {
+    const session = await getIronSession<SessionData>(
+      await cookies(),
+      getSessionOptions()
+    );
+
+    if (!session.isLoggedIn) {
+      return NextResponse.json(
+        { error: { code: "UNAUTHORIZED", message: "Login required" } },
+        { status: 401 }
+      );
+    }
+
+    // 기존 credentials 확인
+    const existingCreds = getAwsCredentials(session.userId);
+    if (!existingCreds) {
+      return NextResponse.json(
+        { error: { code: "NOT_FOUND", message: "No credentials found. Use POST to create." } },
+        { status: 404 }
+      );
+    }
+
+    const body = await request.json();
+
+    // 요청 검증
+    const parseResult = CredentialsPatchSchema.safeParse(body);
+    if (!parseResult.success) {
+      return NextResponse.json(
+        {
+          error: {
+            code: "VALIDATION_ERROR",
+            message: parseResult.error.issues[0]?.message || "Invalid request",
+          },
+        },
+        { status: 400 }
+      );
+    }
+
+    const { accessKeyId, secretAccessKey, region, mfaSerial } = parseResult.data;
+
+    // Access Key 쌍 업데이트
+    if (accessKeyId && secretAccessKey) {
+      saveAwsCredentials(
+        session.userId,
+        accessKeyId,
+        secretAccessKey,
+        region ?? existingCreds.region
+      );
+    }
+    // Region만 업데이트
+    else if (region !== undefined) {
+      saveAwsCredentials(
+        session.userId,
+        existingCreds.accessKeyId,
+        existingCreds.secretAccessKey,
+        region
+      );
+    }
+
+    // MFA Serial 업데이트 (null이면 삭제)
+    if (mfaSerial !== undefined) {
+      saveMfaSerial(session.userId, mfaSerial);
+      // MFA 설정 변경 시 임시 자격증명 삭제
+      clearTempCredentials(session.userId);
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("Patch credentials error:", error);
     return NextResponse.json(
       { error: { code: "INTERNAL_ERROR", message: "An unexpected error occurred" } },
       { status: 500 }

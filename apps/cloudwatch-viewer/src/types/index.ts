@@ -19,6 +19,37 @@ export const CredentialsRequestSchema = z.object({
 
 export type CredentialsRequest = z.infer<typeof CredentialsRequestSchema>;
 
+// PATCH: 필드별 부분 업데이트
+export const CredentialsPatchSchema = z
+  .object({
+    accessKeyId: z.string().min(16, "Access Key ID must be at least 16 characters").optional(),
+    secretAccessKey: z.string().min(1, "Secret Access Key is required").optional(),
+    region: z.string().optional(),
+    mfaSerial: z
+      .string()
+      .regex(/^arn:aws:iam::\d{12}:mfa\/.+$/, "Invalid MFA ARN format")
+      .nullable()
+      .optional(),
+  })
+  .refine(
+    (data) => {
+      // accessKeyId와 secretAccessKey는 둘 다 있거나 둘 다 없어야 함
+      const hasAccessKey = data.accessKeyId !== undefined;
+      const hasSecretKey = data.secretAccessKey !== undefined;
+      return hasAccessKey === hasSecretKey;
+    },
+    { message: "accessKeyId and secretAccessKey must be provided together" }
+  )
+  .refine(
+    (data) => {
+      // 최소 하나의 필드는 있어야 함
+      return Object.values(data).some((v) => v !== undefined);
+    },
+    { message: "At least one field must be provided" }
+  );
+
+export type CredentialsPatch = z.infer<typeof CredentialsPatchSchema>;
+
 export const MfaSessionRequestSchema = z.object({
   tokenCode: z.string().regex(/^\d{6}$/, "MFA code must be 6 digits"),
 });
