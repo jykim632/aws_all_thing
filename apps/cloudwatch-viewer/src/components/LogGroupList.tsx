@@ -1,6 +1,15 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
+
+import { extractApiError } from "@/lib/api/response";
+import {
+  isMfaError,
+  isSettingsRequiredError,
+  isUnauthorizedError,
+} from "@/lib/aws/errors";
+import type { UiError } from "@/types";
 
 interface LogGroup {
   logGroupName: string;
@@ -17,7 +26,7 @@ interface LogGroupListProps {
 export function LogGroupList({ onSelect, selectedGroup, onMfaRequired }: LogGroupListProps) {
   const [logGroups, setLogGroups] = useState<LogGroup[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<UiError | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
 
   useEffect(() => {
@@ -31,22 +40,17 @@ export function LogGroupList({ onSelect, selectedGroup, onMfaRequired }: LogGrou
       const res = await fetch("/api/logs/groups");
       const data = await res.json();
 
-      if (data.error) {
-        // MFA 에러 체크
-        if (
-          data.error.code === "MFA_REQUIRED" ||
-          data.error.code === "MFA_SESSION_EXPIRED"
-        ) {
-          onMfaRequired?.();
-          setError("MFA 인증이 필요합니다.");
-          return;
-        }
-        throw new Error(data.error.message);
+      const apiError = extractApiError(data);
+      if (apiError) {
+        setError(apiError);
+        return;
       }
 
       setLogGroups(data.logGroups);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load log groups");
+      setError({
+        message: err instanceof Error ? err.message : "Failed to load log groups",
+      });
     } finally {
       setLoading(false);
     }
@@ -76,10 +80,73 @@ export function LogGroupList({ onSelect, selectedGroup, onMfaRequired }: LogGrou
     );
   }
 
-  if (error) {
+  const renderError = () => {
+    if (!error) return null;
+
+    // 1) 설정으로 이동 (NO_CREDENTIALS / INVALID_CREDENTIALS)
+    if (isSettingsRequiredError(error.code)) {
+      return (
+        <div className="p-4">
+          <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
+            <div className="text-amber-800 font-medium text-sm mb-2">
+              AWS Credentials 설정 필요
+            </div>
+            <p className="text-amber-700 text-sm mb-3">{error.message}</p>
+            <Link
+              href="/settings"
+              className="text-sm text-blue-600 hover:underline"
+            >
+              설정으로 이동 →
+            </Link>
+          </div>
+        </div>
+      );
+    }
+
+    // 2) MFA 안내 (MFA_REQUIRED / MFA_SESSION_EXPIRED)
+    if (isMfaError(error.code)) {
+      return (
+        <div className="p-4">
+          <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <div className="text-blue-800 font-medium text-sm mb-2">
+              MFA 인증 필요
+            </div>
+            <p className="text-blue-700 text-sm mb-3">{error.message}</p>
+            <button
+              onClick={() => onMfaRequired?.()}
+              className="text-sm text-blue-600 hover:underline"
+            >
+              MFA 인증하기 →
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    // 3) 로그인 안내 (UNAUTHORIZED)
+    if (isUnauthorizedError(error.code)) {
+      return (
+        <div className="p-4">
+          <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
+            <div className="text-amber-800 font-medium text-sm mb-2">
+              로그인 필요
+            </div>
+            <p className="text-amber-700 text-sm mb-3">{error.message}</p>
+            <Link
+              href="/login"
+              className="text-sm text-blue-600 hover:underline"
+            >
+              로그인으로 이동 →
+            </Link>
+          </div>
+        </div>
+      );
+    }
+
+    // 4) 기타 에러
     return (
       <div className="p-4">
-        <div className="text-red-500 text-sm mb-2">{error}</div>
+        <div className="text-red-500 text-sm mb-2">{error.message}</div>
         <button
           onClick={fetchLogGroups}
           className="text-sm text-blue-600 hover:underline"
@@ -88,6 +155,10 @@ export function LogGroupList({ onSelect, selectedGroup, onMfaRequired }: LogGrou
         </button>
       </div>
     );
+  };
+
+  if (error) {
+    return renderError();
   }
 
   return (

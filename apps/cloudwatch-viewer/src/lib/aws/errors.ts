@@ -102,3 +102,21 @@ function isAwsSdkError(err: unknown): err is { name: string; message?: string; $
 export function isMfaError(errorCode: string | undefined): boolean {
   return errorCode === "MFA_REQUIRED" || errorCode === "MFA_SESSION_EXPIRED";
 }
+
+/**
+ * 설정 페이지로 이동이 필요한 에러인지 확인
+ */
+export function isSettingsRequiredError(errorCode: string | undefined): boolean {
+  return (
+    errorCode === "NO_CREDENTIALS" ||
+    errorCode === "INVALID_CREDENTIALS" ||
+    errorCode === "MFA_NOT_CONFIGURED"
+  );
+}
+
+/**
+ * 로그인이 필요한 에러인지 확인
+ */
+export function isUnauthorizedError(errorCode: string | undefined): boolean {
+  return errorCode === "UNAUTHORIZED";
+}
